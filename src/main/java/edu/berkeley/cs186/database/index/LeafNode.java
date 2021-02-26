@@ -1,5 +1,6 @@
 package edu.berkeley.cs186.database.index;
 
+import java.lang.StackWalker.Option;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -377,7 +378,25 @@ class LeafNode extends BPlusNode {
         // use the constructor that reuses an existing page instead of fetching a
         // brand new one.
 
-        return null;
+        Page page = bufferManager.fetchPage(treeContext, pageNum);
+        Buffer buf = page.getBuffer();
+
+        byte nodeType = buf.get();
+        assert(nodeType == (byte) 1);
+        Optional<Long> rightSibling = Optional.empty();
+        Long rSib = buf.getLong();
+        if(rSib!=-1)
+            rightSibling = Optional.of(rSib);
+        List<DataBox> keys = new ArrayList<>();
+        List<RecordId> rIds = new ArrayList<>();
+        int n = buf.getInt();
+        for (int i = 0; i < n; ++i) {
+            keys.add(DataBox.fromBytes(buf, metadata.getKeySchema()));
+            rIds.add(RecordId.fromBytes(buf));
+        }
+        return new LeafNode(metadata, bufferManager, page, keys, rIds, rightSibling, treeContext);
+
+
     }
 
     // Builtins ////////////////////////////////////////////////////////////////
