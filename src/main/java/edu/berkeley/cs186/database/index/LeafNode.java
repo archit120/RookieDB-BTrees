@@ -149,23 +149,50 @@ class LeafNode extends BPlusNode {
     public LeafNode get(DataBox key) {
         // TODO(proj2): implement
 
-        return null;
+        return this;
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
-        // TODO(proj2): implement
-
-        return null;
+        return this;
     }
 
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+        int maxKeys = 2*metadata.getOrder();
+        int index = InnerNode.numLessThan(key, keys);
 
-        return Optional.empty();
+        if(keys.size() > index && keys.get(index).equals(key))
+            throw new BPlusTreeException("Duplicate keys not allowed!");
+        keys.add(index, key);
+        rids.add(index, rid);
+        
+        if(maxKeys >= keys.size())
+        {
+            sync();
+            return Optional.empty();
+        }
+
+        List<DataBox> nKeys = new ArrayList<>();
+        List<RecordId> nRId = new ArrayList<>();
+        //copy over last d keys and rids while removing from current list;
+
+        for(int i = metadata.getOrder(); i<keys.size(); i++) {
+            nKeys.add(keys.get(i));
+            nRId.add(rids.get(i));
+        }
+        for(int i = keys.size()-1; i>=metadata.getOrder(); i--) {
+            keys.remove(i);
+            rids.remove(i);
+        }
+
+        LeafNode split_leaf_node = new LeafNode(metadata, bufferManager, nKeys, nRId, rightSibling, treeContext);
+        rightSibling = Optional.of(split_leaf_node.page.getPageNum());
+        sync();
+        return Optional.of(new Pair<DataBox, Long>(nKeys.get(0), rightSibling.get()));
     }
 
     // See BPlusNode.bulkLoad.

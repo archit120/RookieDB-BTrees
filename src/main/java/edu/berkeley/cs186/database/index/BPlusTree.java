@@ -143,8 +143,10 @@ public class BPlusTree {
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
         // TODO(proj2): implement
+        if(root == null)
+            return Optional.empty();
 
-        return Optional.empty();
+        return root.get(key).getKey(key);
     }
 
     /**
@@ -231,6 +233,7 @@ public class BPlusTree {
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
+
         // TODO(proj2): Return a BPlusTreeIterator.
 
         return Collections.emptyIterator();
@@ -245,6 +248,7 @@ public class BPlusTree {
      *   tree.put(key, rid); // Success :)
      *   tree.put(key, rid); // BPlusTreeException :(
      */
+    public static int num = 0;
     public void put(DataBox key, RecordId rid) {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
@@ -254,8 +258,23 @@ public class BPlusTree {
         // Note: You should NOT update the root variable directly.
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
+        Optional<Pair<DataBox, Long>> val = root.put(key, rid);
+        num++;
+        if(val.isEmpty())
+        {
+            // toDotPDFFile("tree"+String.valueOf(num)+".pdf");
+            return;
+        }
+        Pair<DataBox, Long> split = val.get();
+        List<DataBox> keys = new ArrayList<>();
+        List<Long> children = new ArrayList<>();
+        keys.add(split.getFirst());
+        children.add(root.getPage().getPageNum());
+        children.add(split.getSecond());
+        InnerNode newRoot = new InnerNode(metadata, bufferManager, keys, children, lockContext);
+        updateRoot(newRoot);
+        // toDotPDFFile("tree"+String.valueOf(num)+".pdf");
 
-        return;
     }
 
     /**
@@ -283,7 +302,7 @@ public class BPlusTree {
         // Note: You should NOT update the root variable directly.
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
-
+        
         return;
     }
 
@@ -354,7 +373,7 @@ public class BPlusTree {
 
         // Writing to intermediate dot file
         try {
-            java.io.File file = new java.io.File("tree.dot");
+            java.io.File file = new java.io.File("tree"+String.valueOf(num)+".dot");
             FileWriter fileWriter = new FileWriter(file);
             fileWriter.write(tree_string);
             fileWriter.flush();
@@ -365,7 +384,7 @@ public class BPlusTree {
 
         // Running command to convert dot file to PDF
         try {
-            Runtime.getRuntime().exec("dot -T pdf tree.dot -o " + filename);
+            Runtime.getRuntime().exec("\"D:\\Graphviz\\bin\\dot.exe\" -T pdf tree"+String.valueOf(num)+".dot -o " + filename);
         } catch (IOException e) {
             e.printStackTrace();
             throw new UncheckedIOException(e);
