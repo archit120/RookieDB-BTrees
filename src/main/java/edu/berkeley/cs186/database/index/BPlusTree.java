@@ -202,7 +202,7 @@ public class BPlusTree {
 
         // TODO(proj2): Return a BPlusTreeIterator.
 
-        return Collections.emptyIterator();
+        return new BPlusTreeIterator(root.getLeftmostLeaf(), -1);
     }
 
     /**
@@ -232,11 +232,12 @@ public class BPlusTree {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
-
+        LeafNode tnode = root.get(key);
+        int cid = InnerNode.numLessThan(key, tnode.getKeys());
 
         // TODO(proj2): Return a BPlusTreeIterator.
 
-        return Collections.emptyIterator();
+        return new BPlusTreeIterator(root.getLeftmostLeaf(), cid-1);
     }
 
     /**
@@ -431,19 +432,39 @@ public class BPlusTree {
     // Iterator ////////////////////////////////////////////////////////////////
     private class BPlusTreeIterator implements Iterator<RecordId> {
         // TODO(proj2): Add whatever fields and constructors you want here.
+        LeafNode cnode;
+        Integer cid;
+
+        public BPlusTreeIterator(LeafNode cnode_s, Integer cid_s) {
+            cnode = cnode_s;
+            cid = cid_s;
+        }    
 
         @Override
         public boolean hasNext() {
             // TODO(proj2): implement
-
+            if(!cnode.getRightSibling().isEmpty())
+                return true;
+            if(cid+1 != cnode.getRids().size())
+                return true;
             return false;
         }
 
         @Override
         public RecordId next() {
             // TODO(proj2): implement
+            cid++;
+            if(cid == cnode.getRids().size())
+            {
+                while(cid == cnode.getRids().size() && !cnode.getRightSibling().isEmpty())
+                {
+                    cid=0; cnode = cnode.getRightSibling().get();
+                }
+                if(cid == cnode.getRids().size())
+                    throw new NoSuchElementException();
 
-            throw new NoSuchElementException();
+            }
+            return cnode.getRids().get(cid);
         }
     }
 }
