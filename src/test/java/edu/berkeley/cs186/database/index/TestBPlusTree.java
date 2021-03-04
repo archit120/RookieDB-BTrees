@@ -456,16 +456,16 @@ public class TestBPlusTree {
                 }
 
                 // // Load the tree from disk.
-                // BPlusTree fromDisk = new BPlusTree(bufferManager, metadata, treeContext);
-                // assertEquals(sortedRids, indexIteratorToList(fromDisk::scanAll));
+                BPlusTree fromDisk = new BPlusTree(bufferManager, metadata, treeContext);
+                assertEquals(sortedRids, indexIteratorToList(fromDisk::scanAll));
 
-                // // Test remove.
-                // Collections.shuffle(keys, new Random(42));
-                // Collections.shuffle(rids, new Random(42));
-                // for (DataBox key : keys) {
-                //     fromDisk.remove(key);
-                //     assertEquals(Optional.empty(), fromDisk.get(key));
-                // }
+                // Test remove.
+                Collections.shuffle(keys, new Random(42));
+                Collections.shuffle(rids, new Random(42));
+                for (DataBox key : keys) {
+                    fromDisk.remove(key);
+                    assertEquals(Optional.empty(), fromDisk.get(key));
+                }
             }
         }
     }

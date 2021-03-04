@@ -237,7 +237,7 @@ public class BPlusTree {
 
         // TODO(proj2): Return a BPlusTreeIterator.
 
-        return new BPlusTreeIterator(root.getLeftmostLeaf(), cid-1);
+        return new BPlusTreeIterator(tnode, cid-1);
     }
 
     /**
@@ -275,7 +275,6 @@ public class BPlusTree {
         InnerNode newRoot = new InnerNode(metadata, bufferManager, keys, children, lockContext);
         updateRoot(newRoot);
         // toDotPDFFile("tree"+String.valueOf(num)+".pdf");
-
     }
 
     /**
@@ -303,7 +302,24 @@ public class BPlusTree {
         // Note: You should NOT update the root variable directly.
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
-        
+        while(data.hasNext())
+        {
+            num++;
+
+            Optional<Pair<DataBox, Long>> val = root.bulkLoad(data, fillFactor);
+            if(!val.isEmpty())
+            {
+                Pair<DataBox, Long> split = val.get();
+                List<DataBox> keys = new ArrayList<>();
+                List<Long> children = new ArrayList<>();
+                keys.add(split.getFirst());
+                children.add(root.getPage().getPageNum());
+                children.add(split.getSecond());
+                InnerNode newRoot = new InnerNode(metadata, bufferManager, keys, children, lockContext);
+                updateRoot(newRoot);
+            }
+            // toDotPDFFile("tree"+String.valueOf(num)+".pdf");
+        }
         return;
     }
 
@@ -324,7 +340,7 @@ public class BPlusTree {
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
         // TODO(proj2): implement
-
+        root.remove(key);
         return;
     }
 

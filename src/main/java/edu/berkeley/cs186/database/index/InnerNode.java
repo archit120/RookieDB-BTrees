@@ -90,24 +90,9 @@ class InnerNode extends BPlusNode {
         return getChild(0).getLeftmostLeaf();
     }
 
-    // See BPlusNode.put.
-    @Override
-    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
-        
-        int index = InnerNode.numLessThanEqual(key, keys);
-        Optional<Pair<DataBox, Long>> val = getChild(index).put(key, rid);
-        if(val.isEmpty())
-        {
-            sync();
-            return Optional.empty();
-        }
-        
-        key = val.get().getFirst();
-        index = InnerNode.numLessThan(key, keys);
-        keys.add(index, key);
-        children.add(index+1, val.get().getSecond());
-        if(keys.size() <= metadata.getOrder()*2)
+    private Optional<Pair<DataBox, Long>> split(int maxKeys, int splitAt)
+    {
+        if(keys.size() <= maxKeys)
         {
             sync();
             return Optional.empty();
@@ -116,13 +101,13 @@ class InnerNode extends BPlusNode {
         List<DataBox> nKeys = new ArrayList<>();
         List<Long> nChildren = new ArrayList<>();
         //copy over last d keys and rids while removing from current list;
-        DataBox splitKey = keys.get(metadata.getOrder());
-        nChildren.add(children.get(metadata.getOrder()+1));
-        for(int i = metadata.getOrder()+1; i<keys.size(); i++) {
+        DataBox splitKey = keys.get(splitAt);
+        nChildren.add(children.get(splitAt+1));
+        for(int i = splitAt+1; i<keys.size(); i++) {
             nKeys.add(keys.get(i));
             nChildren.add(children.get(i+1));
         }
-        for(int i = keys.size()-1; i>=metadata.getOrder(); i--) {
+        for(int i = keys.size()-1; i>=splitAt; i--) {
             keys.remove(i);
             children.remove(i+1);
         }
@@ -133,11 +118,56 @@ class InnerNode extends BPlusNode {
 
     }
 
+    private void putNoSplit(DataBox key, RecordId rid) {
+        int index = InnerNode.numLessThanEqual(key, keys);
+        Optional<Pair<DataBox, Long>> val = getChild(index).put(key, rid);
+        if(val.isEmpty())
+        {
+            sync();
+            return;
+        }
+        
+        key = val.get().getFirst();
+        index = InnerNode.numLessThan(key, keys);
+        keys.add(index, key);
+        children.add(index+1, val.get().getSecond());
+
+    }
+
+    // See BPlusNode.put.
+    @Override
+    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
+        // TODO(proj2): implement
+        
+        putNoSplit(key, rid);
+        return split(metadata.getOrder()*2, metadata.getOrder());
+
+    }
+
     // See BPlusNode.bulkLoad.
     @Override
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data, float fillFactor) {
         // TODO(proj2): implement
+        int maxKeys = metadata.getOrder()*2;
+        int splitAt = metadata.getOrder();
+        while(data.hasNext())
+        {
+            Optional<Pair<DataBox, Long>> didSplit = getChild(children.size()-1).bulkLoad(data, fillFactor);
+            if(!didSplit.isPresent())
+            {
+                sync();
+                return didSplit;
+            }
 
+            DataBox key = didSplit.get().getFirst();
+            int index = InnerNode.numLessThan(key, keys);
+            keys.add(index, key);
+            children.add(index+1, didSplit.get().getSecond());
+
+            Optional<Pair<DataBox, Long>> didSplit2 = split(maxKeys, splitAt);
+            if(didSplit2.isPresent())
+                return didSplit2;
+        }
         return Optional.empty();
     }
 

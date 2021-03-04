@@ -158,18 +158,8 @@ class LeafNode extends BPlusNode {
         return this;
     }
 
-    // See BPlusNode.put.
-    @Override
-    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
-        int maxKeys = 2*metadata.getOrder();
-        int index = InnerNode.numLessThan(key, keys);
-
-        if(keys.size() > index && keys.get(index).equals(key))
-            throw new BPlusTreeException("Duplicate keys not allowed!");
-        keys.add(index, key);
-        rids.add(index, rid);
-        
+    private Optional<Pair<DataBox, Long>> split(int maxKeys, int splitAt)
+    {
         if(maxKeys >= keys.size())
         {
             sync();
@@ -179,12 +169,11 @@ class LeafNode extends BPlusNode {
         List<DataBox> nKeys = new ArrayList<>();
         List<RecordId> nRId = new ArrayList<>();
         //copy over last d keys and rids while removing from current list;
-
-        for(int i = metadata.getOrder(); i<keys.size(); i++) {
+        for(int i = splitAt; i<keys.size(); i++) {
             nKeys.add(keys.get(i));
             nRId.add(rids.get(i));
         }
-        for(int i = keys.size()-1; i>=metadata.getOrder(); i--) {
+        for(int i = keys.size()-1; i>=splitAt; i--) {
             keys.remove(i);
             rids.remove(i);
         }
@@ -193,6 +182,25 @@ class LeafNode extends BPlusNode {
         rightSibling = Optional.of(split_leaf_node.page.getPageNum());
         sync();
         return Optional.of(new Pair<DataBox, Long>(nKeys.get(0), rightSibling.get()));
+
+    }
+
+    private void putNoSplit(DataBox key, RecordId rid) {
+        int index = InnerNode.numLessThan(key, keys);
+
+        if(keys.size() > index && keys.get(index).equals(key))
+            throw new BPlusTreeException("Duplicate keys not allowed!");
+        keys.add(index, key);
+        rids.add(index, rid);
+    }
+
+    // See BPlusNode.put.
+    @Override
+    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
+        // TODO(proj2): implement
+        int maxKeys = 2*metadata.getOrder();
+        putNoSplit(key, rid);
+        return split(maxKeys, metadata.getOrder());
     }
 
     // See BPlusNode.bulkLoad.
@@ -200,7 +208,16 @@ class LeafNode extends BPlusNode {
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
             float fillFactor) {
         // TODO(proj2): implement
-
+        int maxKeys = (int)Math.ceil(metadata.getOrder()*2*fillFactor);
+        int splitAt = maxKeys;
+        while(data.hasNext())
+        {
+            Pair<DataBox, RecordId> val = data.next();
+            putNoSplit(val.getFirst(), val.getSecond());
+            Optional<Pair<DataBox, Long>> didSplit = split(maxKeys, splitAt);
+            if(didSplit.isPresent())
+                return didSplit;
+        }
         return Optional.empty();
     }
 
